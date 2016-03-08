@@ -14,7 +14,6 @@ import s3
 
 STATIC_BUCKET = "static.synapse.org"
 
-
 def create_html_file(html_link):
     #get a unique file name from txt/link
     html_file_name = str(hashlib.md5(html_link).hexdigest()) + '.html'
@@ -23,7 +22,7 @@ def create_html_file(html_link):
     <!DOCTYPE html>
     <html>
     <body>
-    <iframe src="$HTML_LINK" width="1500" height="1000" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe> 
+    <iframe src="$HTML_LINK" width="1500" height="1000" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
     </body>
     </html>
     """)
@@ -47,14 +46,15 @@ def s3manage(args):
 
     if os.path.isdir(args.upload_path) is True:
         url = bucket.uploadDir(args.upload_path,args.upload_prefix)
-    else:   
+    else:
         url = bucket.uploadFiles(args.upload_path,args.upload_prefix)
 
     if args.synapse_wikiID is not None:
-        embed_url_in_synapse_wiki(url,args.synapse_wikiID)
+        embed_url_in_synapse_wiki(url,args.synapse_wikiID, args.synapse_wikiHeight,
+                                  args.synapse_onweb)
 
 
-def embed_url_in_synapse_wiki(url, wikiID):
+def embed_url_in_synapse_wiki(url, wikiID, wikiHeight=1000, onweb=False):
     import synapseclient
     syn = synapseclient.login()
     wiki = syn.getWiki(wikiID)
@@ -70,10 +70,11 @@ def embed_url_in_synapse_wiki(url, wikiID):
     #percent encoded URL
     import urllib
     url = urllib.quote(url, safe='')
-    link_markdown = '${iframe?site=' + url + '&height=1000}'
+    link_markdown = '${iframe?site=' + url + '&height=%s}' % wikiHeight
     wiki['markdown'] = link_markdown
     wiki = syn.store(wiki)
-    syn.onweb(wikiID)
+    if onweb:
+        syn.onweb(wikiID)
 
 
 def build_parser():
@@ -94,6 +95,11 @@ def build_parser():
                            help = "html link to embed in a synapse wiki")
     parser_s3.add_argument('-w', '--wikiID', dest='synapse_wikiID', type=str, default=None,
                            help = "synapse wiki id to embed the link in")
+    parser_s3.add_argument('--wikiHeight', dest='synapse_wikiHeight', type=int, default=1000,
+                           help = "Height of iframe in synapse wiki id to embed the link in [default: %(default)s].")
+    parser_s3.add_argument('--onweb', dest='synapse_onweb', action='store_true', default=False,
+                           help = "Open resulting Wiki page in browser [default: %(default)s].")
+
     parser_s3.add_argument('-p',  '--prefix', dest='upload_prefix', type=str, default='scratch/',
                            help = 'prefix adds the sub dir structure on S3 eg. test/ will add the file under test/ folder on s3 bucket')
     parser_s3.add_argument('--rememberMe', '--remember-me', dest='rememberMe', action='store_true', default=False,
@@ -116,5 +122,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-
-
